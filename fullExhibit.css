@@ -1,0 +1,18 @@
+* {
+	padding: 0;
+	margin: 0;
+	box-sizing: border-box;
+}
+html, body {
+	width: 100%;
+	height: 100%;
+}
+canvas#exhibit {
+	display: block;
+	position: absolute;
+	width: 100%;
+	height: 100%;
+}
+div#description {
+	display: none;
+}
