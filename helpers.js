@@ -2,6 +2,7 @@
     "use strict";
     //The .method method, to add a method to an object's prototype (chainable) - from JS: The Good Parts
     Object.prototype.method = function (name, func) {
+	console.log("hook");
         if (!this.prototype[name]) {
             this.prototype[name] = func;
         }
@@ -25,13 +26,13 @@
     //The .filterByType method; returns an array containing all of the elements of a given type
     Array.method('filterByType', function (Type) {
         var i,
-            matches;
+            matches = [],
+	    instanceOfType = new Type();
         if (this.length < 1) {
-            return [];
+            return matches;
         }
-        matches = [];
         for (i = 0; i < this.length; i += 1) {
-            if (typeof (this[i]) === typeof (Type)) {
+            if (typeof (this[i]) === typeof (instanceOfType)) {
                 matches.push(this[i]);
             }
         }
