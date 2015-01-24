@@ -1,9 +1,11 @@
 (function () {
     "use strict";
     //The .method method, to add a method to an object's prototype (chainable) - from JS: The Good Parts
+    //This checks to see if the object has its own method,
+    //It will override its prototype's method if there is any
     Object.prototype.method = function (name, func) {
-	console.log("hook");
-        if (!this.prototype[name]) {
+        //if (!this.prototype[name]) {
+        if (!this.hasOwnProperty(name)) {
             this.prototype[name] = func;
         }
         return this;
