@@ -28,16 +28,23 @@
     //The .filterByType method; returns an array containing all of the elements of a given type
     Array.method('filterByType', function (Type) {
         var i,
-            matches = [],
-	    instanceOfType = new Type();
+            matches = [];
         if (this.length < 1) {
             return matches;
         }
         for (i = 0; i < this.length; i += 1) {
-            if (typeof (this[i]) === typeof (instanceOfType)) {
+            if (this[i] instanceof Type) {
                 matches.push(this[i]);
             }
         }
         return matches;
+    });
+    //The .joinArray method; joins the current array with another by appending the array given as an argument to the current one
+    Array.method('joinArray', function (arrayB) {
+        var i;
+        for (i = 0; i < arrayB.length; i += 1) {
+            this.push(arrayB[i]);
+        }
+        return this;
     });
 }());
