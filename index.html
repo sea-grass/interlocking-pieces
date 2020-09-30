@@ -1,20 +1,31 @@
 <!doctype html>
 <html>
-    <!-- a1/index.html
+<!-- a1/index.html
         On the main page, there will be an index and an exhibit. The exhibit will be an iframe, containing this page.
 
         The page needs:
         - A canvas to fill 100% of the page
         - A div#description element with any information to be displayed in the exhibit 
     -->
-    <head>
-        <title>Page at /a1</title>
-    </head>
-    <body>
-        <script src="helpers.js"></script>
-        <script src="Cel.js"></script>
-        <script src="GameEngine.js"></script>
-        <script src="app.js"></script>
-        <a href="example.html">example</a>
-    </body>
+<head>
+    <title>Page at /a1</title>
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        iframe {
+            border: 0;
+            overflow-y: hidden;
+            width: 320px;
+            height: 480px;
+            border: 1px solid black;
+        }
+
+    </style>
+</head>
+<body>
+    <a href="example.html">example</a>
+    <iframe src="example.html" width="320" height="480"></iframe>
+</body>
 </html>

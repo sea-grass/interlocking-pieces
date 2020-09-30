@@ -1,11 +1,8 @@
+import { filterByType, contains } from './helpers.js';
 
-var GameEngine = {};
-(function () {
-    "use strict";
-    /*global console */
-    var Member, Canvas, Game, Scene, World, Sprite, Player;
-    /* Member */
-    Member = GameEngine.Member = function () {
+/* game-engine.js */
+class Member {
+    constructor() {
         this.X = 0;
         this.Y = 0;
         this.parent = null;
@@ -14,8 +11,8 @@ var GameEngine = {};
         this.controllable = false; //Will be checked in this.update
         this.FPS = 10;
         this.keyEvents = [];
-    };
-    Member.method('updateAll', function () {
+    }
+    updateAll() {
         var i,
             submember;
         //Default update method
@@ -25,15 +22,15 @@ var GameEngine = {};
         }
         //Calls update on self and all updateable children
         this.update();
-        
+
         for (i = 0; i < this.children.length; i += 1) {
             submember = this.children[i];
             if (submember.updateable) {
                 submember.updateAll();
             }
         }
-    });
-    Member.method('update', function () {
+    }
+    update() {
         if (this.controllable) {
             this.controlUpdate();
         }
@@ -42,8 +39,8 @@ var GameEngine = {};
         } else {
             this.draw();
         }
-    });
-    Member.method('startUpdateLoop', function (fps) {
+    }
+    startUpdateLoop() {
         var that;
         this.updateAll();
         this.inLoop = true;
@@ -51,21 +48,22 @@ var GameEngine = {};
         this.intervalID = window.setInterval(function () {
             that.updateAll();
         }, 1000 / this.FPS);
-    });
-    Member.method('init', function () {
+    }
+    init() {
         this.initialized = true;
         //Child classes will override this method
         return this;
-    });
-    Member.method('draw', function () {
+    }
+    draw() {
         //Child classes will override this method
-    });
+    }
+
     //Descends into the children recursively, checking to see if the child is anywhere inside it
-    Member.method('hasChild', function (member) {
+    hasChild(member) {
         var i,
             submember;
         //Search this member's children
-        if (this.children.contains(member) !== -1) {
+        if (contains(this.children, member) !== -1) {
             return true;
         }
         //Then search this member's children's children (and their children, and their children, etc...)
@@ -77,8 +75,9 @@ var GameEngine = {};
         }
         //If this point is reached, no match has been found
         return false;
-    });
-    Member.method('addChild', function (member) {
+    }
+
+    addChild(member) {
         if (typeof (member) !== typeof (new Member())) {
             throw 'Error here!';
         }
@@ -87,23 +86,36 @@ var GameEngine = {};
             member.parent = this;
             this.children.push(member);
         }
-    });
-    /* Canvas */
-    Canvas = GameEngine.Canvas = function (options) {
-        var thisCanvas, container;
-        container = options.container || document.body;
-        thisCanvas = document.createElement("canvas");
-        thisCanvas.width = options.width || 320;
-        thisCanvas.height = options.height || 480;
-        
-        container.appendChild(thisCanvas);
-        
-        return thisCanvas;
+    }
+}
+
+function createCanvas(options) {
+    var thisCanvas, container;
+    container = options.container || document.body;
+    thisCanvas = document.createElement("canvas");
+    thisCanvas.width = options.width || 320;
+    thisCanvas.height = options.height || 480;
+
+    container.appendChild(thisCanvas);
+
+    return thisCanvas;
+}
+
+class Game extends Member {
+    static Keys = {
+        "LEFT": 37,
+        "UP": 38,
+        "RIGHT": 39,
+        "DOWN": 40,
+        "SPACE": 32
+
     };
-    /* Game */
-    Game = GameEngine.Game = function (options) {
+
+    constructor(options) {
+        super();
+
         var i;
-        
+
         this.assets = {};
         this.element = document.createElement("div");
         this.element.style.width = "320px";
@@ -114,7 +126,7 @@ var GameEngine = {};
         if (options) {
             if (!options.canvas) {
                 //Create one
-                this.canvas = new Canvas({"width": 320, "height": 480});
+                this.canvas = createCanvas({ "width": 320, "height": 480 });
                 this.X = 320;
                 this.Y = 480;
             } else {
@@ -128,7 +140,7 @@ var GameEngine = {};
                 this.canvas.remove();
             }
             this.element.appendChild(this.canvas);
-            
+
             this.canvas.game = this;
 
             this.ctx = this.canvas.getContext("2d");
@@ -145,17 +157,9 @@ var GameEngine = {};
                 document.body.appendChild(this.element);
             }
         }
-    };
-    Game.inherits(Member);
-    Game.Keys = {
-        "LEFT": 37,
-        "UP": 38,
-        "RIGHT": 39,
-        "DOWN": 40,
-        "SPACE": 32
+    }
 
-    };
-    Game.method('addScene', function (scene) {
+    addScene(scene) {
         this.addChild(scene);
         if (this.hasChild(scene)) {
             scene.canvas = this.canvas;
@@ -164,30 +168,35 @@ var GameEngine = {};
             scene.Y = this.Y;
         }
         return this;
-    });
-    Game.method('getScenes', function () {
-        return this.children.filterByType(Scene);
-    });
-    Game.method('getPlayers', function () {
-        var scenes, scene, players,
+    }
+
+    getScenes() {
+        return filterByType(this.children, Scene);
+    }
+
+    getPlayers
+        () {
+        var scenes, players,
             i;
         //Start with empty array
         players = [];
         //Get all scenes
         scenes = this.getScenes();
         for (i = 0; i < scenes.length; i += 1) {
-            players.joinArray(scenes[i].getPlayers());
+            players = joinArray(players, scenes[i].getPlayers());
         }
         return players;
-    });
-    Game.method('addAssets', function (assets, callback) {
+    }
+
+    addAssets
+        (assets, callback) {
         var asset, name, image, assetLoaded;
         assetLoaded = (function (assets) {
             var name, assetsLoaded = {};
             for (name in assets) {
                 if (assets.hasOwnProperty(name)) {
                     console.log("adding asset " + name);
-                    assetsLoaded[name] = {"loaded": false};
+                    assetsLoaded[name] = { "loaded": false };
                 }
             }
             return function (assetName) {
@@ -217,16 +226,22 @@ var GameEngine = {};
                 }
             }
         }
-    });
-    Game.method('addEventListener', function (event, listener) {
+    }
+
+    addEventListener
+        (event, listener) {
         this.element.addEventListener(event, listener);
         return this;
-    });
-    /* Scene */
-    Scene = GameEngine.Scene = function () {
-    };
-    Scene.inherits(Member);
-    Scene.method('addWorld', function (world) {
+    }
+}
+
+class Scene extends Member {
+    constructor() {
+        super();
+    }
+
+    addWorld
+        (world) {
         this.addChild(world);
         if (this.hasChild(world)) {
             world.scene = this;
@@ -235,11 +250,14 @@ var GameEngine = {};
             world.unitY = this.canvas.height / world.height;
         }
         return this;
-    });
-    Scene.method('getWorlds', function () {
-        return this.children.filterByType(World);
-    });
-    Scene.method('addSprite', function (sprite, x, y) {
+    }
+
+    getWorlds
+        () {
+        return filterByType(this.children, World);
+    }
+    addSprite
+        (sprite, x, y) {
         if (x === undefined) {
             console.log("no x supplied");
             x = this.X / 2;
@@ -258,21 +276,26 @@ var GameEngine = {};
             sprite.y = y;
         }
         return this;
-    });
-    Scene.method('getSprites', function () {
-        return this.children.filterByType(Sprite);
-    });
-    Scene.method('getPlayers', function () {
+    }
+    getSprites
+        () {
+        return filterByType(this.children, Sprite);
+    }
+    getPlayers
+        () {
         var i, players, worlds;
         players = [];
         worlds = this.getWorlds();
         for (i = 0; i < worlds.length; i += 1) {
-            players.joinArray(worlds[i].getPlayers());
+            players = joinArray(players, worlds[i].getPlayers());
         }
         return players;
-    });
-    /* World */
-    World = GameEngine.World = function (width, height, objects) {
+    }
+}
+
+class World extends Member {
+    constructor(width, height, objects) {
+        super();
         var row, col, name, i, object;
         //Create world array and initialize it to all zeroes
         this.array = [];
@@ -296,11 +319,12 @@ var GameEngine = {};
                 }
             }
         }
-    };
-    World.inherits(Member);
-    World.method('draw', function () {
+    }
+
+    draw
+        () {
         var ctx, world, x, y, row, col, cell, width, height, unitWidth, unitHeight;
-        
+
         function drawBackground(ctx, x, y, w, h) {
             ctx.fillStyle = "#eee";
             //ctx.fillRect(x, y, w, h);
@@ -321,12 +345,12 @@ var GameEngine = {};
                 ctx.fillRect(x, y, w, h);
             }
         }
-        
+
         x = 0;
         y = 0;
         width = this.unitX;
         height = this.unitY;
-        
+
         ctx = this.scene.ctx;
         if (ctx) {
             for (row = 0; row < this.width; row += 1) {
@@ -347,23 +371,30 @@ var GameEngine = {};
                 x += width;
             }
         }
-    });
-    World.method('getWorld', function () {
+    }
+
+    getWorld
+        () {
         return this.array;
-    });
-    World.method('setWorld', function (world) {
+    }
+    setWorld
+        (world) {
         this.array = world;
-    });
-    World.method('getValue', function (x, y) {
+    }
+    getValue
+        (x, y) {
         var world = this.getWorld();
         return world[x][y];
-    });
-    World.method('setValue', function (val, x, y) {
+    }
+    setValue
+        (val, x, y) {
         var world = this.getWorld();
         world[x][y] = val;
         this.setWorld(world);
-    });
-    World.method('addPlayer', function (player) {
+    }
+
+    addPlayer
+        (player) {
         this.addChild(player);
         if (this.hasChild(player)) {
             player.world = this;
@@ -371,8 +402,9 @@ var GameEngine = {};
             player.y = player.y || 0;
             this.setValue(1, player.x, player.y);
         }
-    });
-    World.method('addSprite', function (sprite, x, y) {
+    }
+    addSprite
+        (sprite, x, y) {
         this.addChild(sprite);
         if (this.hasChild(sprite)) {
             sprite.world = this;
@@ -380,15 +412,21 @@ var GameEngine = {};
             sprite.y = y;
             this.setValue(2, sprite.x, sprite.y);
         }
-    });
-    World.method('getSprites', function () {
-        return this.children.filterByType(Sprite);
-    });
-    World.method('getPlayers', function () {
-        return this.children.filterByType(Player);
-    });
-    /* Sprite */
-    Sprite = GameEngine.Sprite = function (options) {
+    }
+    getSprites
+        () {
+        return filterByType(this.children, Sprite);
+    }
+    getPlayers
+        () {
+        return filterByType(this.children, Player);
+    }
+}
+
+class Sprite extends Member {
+    constructor(options) {
+        super();
+
         if (options) {
             var that;
             this.img = options.img;
@@ -399,22 +437,28 @@ var GameEngine = {};
                 that.height = that.img.height;
             };
         }
-    };
-    Sprite.inherits(Member);
-    Sprite.method('init', function () {
+    }
+
+    init
+        () {
         var ctx;
         ctx = this.ctx || (this.world && this.ctx);
         this.initialized = true;
         if (ctx && this.img) {
-            
+
             ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
         }
-    });
-    Sprite.method('draw', function () {
+    }
+    draw
+        () {
         this.init();
-    });
-    /* Player */
-    Player = GameEngine.Player = function (options) {
+    }
+}
+
+class Player extends Sprite {
+    constructor(options) {
+        super(options);
+
         if (options && options.img) {
             this.img = options.img;
         }
@@ -422,9 +466,10 @@ var GameEngine = {};
         this.y = (options && options.y) || 0;
         this.width = (options && options.width) || 1;
         this.height = (options && options.height) || 1;
-    };
-    Player.inherits(Sprite);
-    Player.method('move', function (dir) {
+    }
+
+    move
+        (dir) {
         var oldX, oldY, newX, newY, width, height;
         oldX = this.x;
         oldY = this.y;
@@ -433,18 +478,18 @@ var GameEngine = {};
         width = this.world.width;
         height = this.world.height;
         switch (dir) {
-        case "up":
-            newY -= 1;
-            break;
-        case "down":
-            newY += 1;
-            break;
-        case "left":
-            newX -= 1;
-            break;
-        case "right":
-            newX += 1;
-            break;
+            case "up":
+                newY -= 1;
+                break;
+            case "down":
+                newY += 1;
+                break;
+            case "left":
+                newX -= 1;
+                break;
+            case "right":
+                newX += 1;
+                break;
         }
         if (newX >= width) {
             newX = 0;
@@ -460,5 +505,17 @@ var GameEngine = {};
         this.world.setValue(1, newX, newY);
         this.x = newX;
         this.y = newY;
-    });
-}());
+    }
+}
+
+
+export {
+    Member,
+    createCanvas as Canvas,
+    createCanvas,
+    Game,
+    Scene,
+    World,
+    Sprite,
+    Player
+};
