@@ -12,7 +12,8 @@ async function main() {
 
     game.addScene(scene);
 
-    game.addAssets({
+    await game.addAssets({
+
         "hook": {
             "type": "image",
             "src": "assets/hook.png"
@@ -21,63 +22,59 @@ async function main() {
             "type": "image",
             "src": "assets/loop.png"
         }
-    }, function () {
-        const
-            player = new Player({
-                img: game.assets.hook
-            }),
-            goal = new Sprite({
-                img: game.assets.loop
-            });
-
-        player.rightAbove = function (object) {
-            if (this.x === object.x)
-                if (this.y + 1 === object.y)
-                    return true;
-            return false;
-        };
-
-        scene.addWorld(new World(8, 12, [player, goal]));
-        game.init = function () {
-            const world = this.getScenes()[0].getWorlds()[0];
-
-            const ctx = this.ctx;
-            ctx.fillStyle = "#aaa";
-            world.draw();
-            return this;
-        }
-
-        game.init().startUpdateLoop();
-
-        window.setInterval(e => {
-            player.move("down");
-        }, 1000);
-
-        game.addEventListener("keydown", e => {
-            const Keys = Game.Keys;
-
-            switch (e.keyCode) {
-                case Keys.UP:
-                    break;
-                case Keys.RIGHT:
-                    player.move("right");
-                    break;
-                case Keys.DOWN:
-                    player.move("down");
-                    break;
-                case Keys.LEFT:
-                    player.move("left");
-                    break;
-                case Keys.SPACE:
-                    //Check if the hook is hooking the loop
-                    //In other words, check if the hook is directly over the loop
-                    //If it is, congratulate the player and move onto next level
-                    //Otherwise, display error message and move player to 0,0
-                    const hooked = player.rightAbove(goal);
-                    setScoreboardState({ hooked })
-            }
-        })
     });
+
+    const player = new Player({
+        img: game.assets.hook
+    });
+    player.rightAbove = function (object) {
+        if (this.x === object.x)
+            if (this.y + 1 === object.y)
+                return true;
+        return false;
+    };
+
+    const goal = new Sprite({
+        img: game.assets.loop
+    });
+
+    const levelOne = new World(8, 12, [player, goal]);
+    scene.addWorld(levelOne);
+
+    game.init().startUpdateLoop();
+
+    game.addEventListener("tick", e => {
+        player.move("down");
+    })
+
+    window.setInterval(e => {
+        player.move("down");
+    }, 1000);
+
+    game.addEventListener("keydown", e => {
+        const Keys = Game.Keys;
+
+        switch (e.keyCode) {
+            case Keys.UP:
+                break;
+            case Keys.RIGHT:
+                player.move("right");
+                break;
+            case Keys.DOWN:
+                player.move("down");
+                break;
+            case Keys.LEFT:
+                player.move("left");
+                break;
+            case Keys.SPACE:
+                //Check if the hook is hooking the loop
+                //In other words, check if the hook is directly over the loop
+                //If it is, congratulate the player and move onto next level
+                //Otherwise, display error message and move player to 0,0
+                const hooked = player.rightAbove(goal);
+                setScoreboardState({ hooked })
+        }
+    })
 }
 
 function setScoreboardState(state) {
@@ -89,8 +86,6 @@ function setScoreboardState(state) {
             msg = text("Try again")
     return patch(
         document.getElementById("scoreboard"),
-        h("div", { id: "scoreboard" }, [
-            msg
-        ])
+        h("div", { id: "scoreboard" }, msg)
     )
 }

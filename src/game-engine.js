@@ -1,6 +1,6 @@
+/* game-engine.js */
 import { filterByType, contains } from './helpers.js';
 
-/* game-engine.js */
 class Member {
     constructor() {
         this.X = 0;
@@ -9,53 +9,89 @@ class Member {
         this.children = [];
         this.updateable = true; //aka visible or drawable (this doesn't affect updateability of children)
         this.controllable = false; //Will be checked in this.update
-        this.FPS = 10;
+        this.FPS = 60;
         this.keyEvents = [];
-    }
-    updateAll() {
-        var i,
-            submember;
-        //Default update method
-        //If this is a Game, then clear the canvas before update
-        if (this instanceof Game) {
-            this.ctx.clearRect(0, 0, this.X, this.Y);
-        }
-        //Calls update on self and all updateable children
-        this.update();
 
-        for (i = 0; i < this.children.length; i += 1) {
-            submember = this.children[i];
-            if (submember.updateable) {
-                submember.updateAll();
-            }
-        }
+        this.loop = this.loop.bind(this);
+        let t = Member.time()
+
+        // hooks for child instances
+        this.unregisteredHooks = new Map();
     }
-    update() {
+
+    static time() {
+        return new Date().getTime();
+    }
+
+    /* hooks */
+    handleEvents() { this.printHookMessage("handleEvents"); }
+    update() { this.printHookMessage("update"); }
+    render() { this.printHookMessage("render"); }
+
+    printHookMessage(name) {
+        if (this.unregisteredHooks.get(name)) return;
+        console.log("NEED TO OVERRIDE THE " + name + " METHOD FOR ME! (" + this.constructor.name + ")");
+        this.unregisteredHooks.set(name, true);
+    }
+    
+    loop() {
+        // Provide escape hatch to stop the event loop
+        if (!this.inLoop) return;
+
+        const newTime = Member.time();
+        const deltaTime = this.t - newTime;
+        this.t = newTime;
+
+        this._handleEvents(newTime, deltaTime);
+        this._update(newTime, deltaTime);
+        this._render(newTime, deltaTime);
+        
+        window.setTimeout(() => requestAnimationFrame(this.loop), 1000 / this.FPS);
+    }
+
+    _handleEvents(t, dt) {
+        this.handleEvents(t, dt);
+
+        this.children.forEach(submember => {
+            submember._handleEvents(t, dt);
+        });
+    }
+
+    _update(t, dt) {
         if (this.controllable) {
             this.controlUpdate();
         }
+
+        this.update(t, dt);
+
+        this.children.forEach(submember => {
+            if (submember.updateable) {
+                submember._update();
+            }
+        })
+    }
+
+    _render(t, dt) {
         if (!this.initialized) {
             this.init();
         } else {
-            this.draw();
+            this.render(t, dt);
+
+            this.children.forEach(submember => {
+                submember._render(t, dt);
+            })
         }
     }
+
     startUpdateLoop() {
-        var that;
-        this.updateAll();
         this.inLoop = true;
-        that = this;
-        this.intervalID = window.setInterval(function () {
-            that.updateAll();
-        }, 1000 / this.FPS);
+        this.loop();
     }
+
     init() {
         this.initialized = true;
         //Child classes will override this method
         return this;
-    }
-    draw() {
-        //Child classes will override this method
     }
 
     //Descends into the children recursively, checking to see if the child is anywhere inside it
@@ -78,7 +114,7 @@ class Member {
     }
 
     addChild(member) {
-        if (typeof (member) !== typeof (new Member())) {
+        if (!(member instanceof Member)) {
             throw 'Error here!';
         }
         //Only add child if it is not already a child of this member
@@ -108,9 +144,19 @@ class Game extends Member {
         "RIGHT": 39,
         "DOWN": 40,
         "SPACE": 32
-
     };
+    static CustomEvents = [
+        "tick"
+    ];
 
+    /**
+     * 
+     * @param {{
+     * canvas: HTMLCanvasElement,
+     * scenes: Scene[],
+     * container: HTMLElement
+     * }} options 
+     */
     constructor(options) {
         super();
 
@@ -159,6 +205,15 @@ class Game extends Member {
         }
     }
 
+    update(d, dt) {
+        // Clear the canvas before drawing
+        this.ctx.clearRect(0, 0, this.X, this.Y);
+    }
+
+    /**
+     * 
+     * @param {Scene} scene 
+     */
     addScene(scene) {
         this.addChild(scene);
         if (this.hasChild(scene)) {
@@ -170,12 +225,17 @@ class Game extends Member {
         return this;
     }
 
+    /**
+     * @returns {Scene[]} scenes
+     */
     getScenes() {
         return filterByType(this.children, Scene);
     }
 
-    getPlayers
-        () {
+    /**
+     * @returns {Player[]} players
+     */
+    getPlayers() {
         var scenes, players,
             i;
         //Start with empty array
@@ -183,54 +243,50 @@ class Game extends Member {
         //Get all scenes
         scenes = this.getScenes();
         for (i = 0; i < scenes.length; i += 1) {
-            players = joinArray(players, scenes[i].getPlayers());
+            players = [...players, ...scenes[i].getPlayers()];
         }
         return players;
     }
 
-    addAssets
-        (assets, callback) {
-        var asset, name, image, assetLoaded;
-        assetLoaded = (function (assets) {
-            var name, assetsLoaded = {};
-            for (name in assets) {
-                if (assets.hasOwnProperty(name)) {
-                    console.log("adding asset " + name);
-                    assetsLoaded[name] = { "loaded": false };
-                }
+    async addAssets(assets, callback) {
+        Promise.all(Object.keys(assets).map((assetName) => new Promise((resolve, reject) => {
+            const asset = assets[assetName];
+            console.log("Loading asset name ", assetName, asset)
+            if (asset.type === "image") {
+                const image = new Image();
+                image.src = asset.src;
+                image.onload = () => resolve();
+                image.onerror= () => reject(new Error("Could not load image asset with src " + asset.src));
+                this.assets[assetName] = image;
             }
-            return function (assetName) {
-                return function (e) {
-                    var name;
-                    assetsLoaded[assetName].loaded = true;
-                    for (name in assetsLoaded) {
-                        if (assetsLoaded.hasOwnProperty(name)) {
-                            if (assetsLoaded[name].loaded === false) {
-                                return;
-                            }
-                        }
-                    }
-                    console.log(assetsLoaded);
-                    callback();
-                };
-            };
-        }(assets));
-        for (name in assets) {
-            if (assets.hasOwnProperty(name)) {
-                asset = assets[name];
-                if (asset.type === "image") {
-                    image = new Image();
-                    image.src = asset.src;
-                    image.onload = assetLoaded(name);
-                    this.assets[name] = image;
-                }
+            else {
+                console.log("No preloading necessary for asset type " + asset.type);
+                resolve();
             }
-        }
+        })))
+        .catch(err => {
+            console.error("Error in Game.addAssets: ", err);
+        })
+        .finally(() => callback && callback());
     }
 
-    addEventListener
-        (event, listener) {
-        this.element.addEventListener(event, listener);
+    addEventListener(event, listener) {
+        if (Game.CustomEvents.indexOf(event)>=0) {
+            console.log("TODO add custom event listeners for " + event)
+            //this.on(event, listener);
+        } else {
+            this.element.addEventListener(event, listener);
+        }
+        return this;
+    }
+
+    removeEventListener(event, listener) {
+        if (Game.CustomEvents.indexOf(event)>=0) {
+            console.log("TODO add custom event listeners for " + event)
+            //this.off(event, listener);
+        } else {
+            this.element.removeEventListener(event, listener);
+        }
         return this;
     }
 }
@@ -240,8 +296,7 @@ class Scene extends Member {
         super();
     }
 
-    addWorld
-        (world) {
+    addWorld(world) {
         this.addChild(world);
         if (this.hasChild(world)) {
             world.scene = this;
@@ -252,12 +307,14 @@ class Scene extends Member {
         return this;
     }
 
-    getWorlds
-        () {
+    /**
+     * @returns {World[]} worlds
+     */
+    getWorlds() {
         return filterByType(this.children, World);
     }
-    addSprite
-        (sprite, x, y) {
+
+    addSprite(sprite, x, y) {
         if (x === undefined) {
             console.log("no x supplied");
             x = this.X / 2;
@@ -277,18 +334,14 @@ class Scene extends Member {
         }
         return this;
     }
-    getSprites
-        () {
+
+    getSprites() {
         return filterByType(this.children, Sprite);
     }
-    getPlayers
-        () {
-        var i, players, worlds;
-        players = [];
-        worlds = this.getWorlds();
-        for (i = 0; i < worlds.length; i += 1) {
-            players = joinArray(players, worlds[i].getPlayers());
-        }
+
+    getPlayers() {
+        const worlds = this.getWorlds();
+        const players = worlds.flatMap(world => world.getPlayers());
         return players;
     }
 }
@@ -321,8 +374,7 @@ class World extends Member {
         }
     }
 
-    draw
-        () {
+    render() {
         var ctx, world, x, y, row, col, cell, width, height, unitWidth, unitHeight;
 
         function drawBackground(ctx, x, y, w, h) {
@@ -413,12 +465,19 @@ class World extends Member {
             this.setValue(2, sprite.x, sprite.y);
         }
     }
+
+    /**
+     * @returns {Sprite[]} sprites
+     */
     getSprites
         () {
         return filterByType(this.children, Sprite);
     }
-    getPlayers
-        () {
+
+    /**
+     * @returns {Player[]} players
+     */
+    getPlayers() {
         return filterByType(this.children, Player);
     }
 }
@@ -439,8 +498,7 @@ class Sprite extends Member {
         }
     }
 
-    init
-        () {
+    init() {
         var ctx;
         ctx = this.ctx || (this.world && this.ctx);
         this.initialized = true;
@@ -449,8 +507,8 @@ class Sprite extends Member {
             ctx.drawImage(this.img, this.x, this.y, this.width, this.height);
         }
     }
-    draw
-        () {
+    
+    render() {
         this.init();
     }
 }
